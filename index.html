@@ -19,7 +19,8 @@
   <div id="result"></div>
 
   <script>
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbwr2jaFMKKLv1AWBYPRIQiwL2Fq1oUxX-u1cUelci_7ZuukSKR1XAlfqx7wmUwafN2Plg/exec'; 
+    // PASTE YOUR NEW GOOGLE APPS SCRIPT URL BELOW
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyHBhlD_pCkcpElgoWh8N-Zb3ScBRutmH8-JG1RZ_trSjH5n7eHr2-vUHpD4d7Zy5Ip3g/exec'; 
     let isScanning = true;
 
     function onScanSuccess(decodedText) {
@@ -31,25 +32,33 @@
       resultDiv.className = '';
       resultDiv.innerText = 'Checking...';
 
-      fetch(`${scriptUrl}?id=${encodeURIComponent(decodedText)}`)
+      // Add a 5-second timeout so it never hangs forever
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      fetch(`${scriptUrl}?id=${encodeURIComponent(decodedText)}`, { signal: controller.signal })
         .then(response => response.json())
         .then(data => {
+          clearTimeout(timeoutId);
           resultDiv.className = data.status;
           resultDiv.innerText = data.message;
-
-          setTimeout(() => {
-            resultDiv.style.display = 'none';
-            isScanning = true;
-          }, 3000);
+          setTimeout(resetScanner, 3000);
         })
         .catch(error => {
+          clearTimeout(timeoutId);
           resultDiv.className = 'invalid';
-          resultDiv.innerText = 'Network Error';
-          setTimeout(() => { 
-            resultDiv.style.display = 'none';
-            isScanning = true; 
-          }, 3000);
+          if (error.name === 'AbortError') {
+             resultDiv.innerText = 'TIMEOUT: RETRYING';
+          } else {
+             resultDiv.innerText = 'NETWORK ERROR';
+          }
+          setTimeout(resetScanner, 3000);
         });
+    }
+
+    function resetScanner() {
+      document.getElementById('result').style.display = 'none';
+      isScanning = true; 
     }
 
     const html5QrcodeScanner = new Html5QrcodeScanner(
